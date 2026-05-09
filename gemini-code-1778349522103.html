@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Stress Gardening / Hybrid Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--bg:#F2F1ED;--text:#111;--text2:#666;--text3:#999;--border:#D5D3CC;--grid:#E2E0DA;}
+  body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;overflow-x:hidden;}
+  
+  /* 와이드 배경 그리드 */
+  .grid-bg{position:fixed;inset:0;pointer-events:none;z-index:-2;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:calc(100vw / 12) calc(100vw / 12);opacity:.6;}
+  
+  /* 메인 배경 이미지 (웹 링크 연동) */
+  .intro-bg {
+    position:fixed; top:0; left:0; width:100vw; height:100vh;
+    pointer-events:none; z-index:-1;
+    background-image: url('https://i.ibb.co/xt57HKMR/stress-gardening-main.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.4;
+    transition: opacity 0.6s ease;
+  }
+  .intro-bg.hide { opacity: 0; display: none; }
+
+  /* 전체 레이아웃 */
+  .app{width:100%;max-width:1600px;margin:0 auto;position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;}
+  .nav{display:flex;justify-content:space-between;align-items:center;padding:40px 5vw;font-size:12px;letter-spacing:.08em;font-weight:700;text-transform:uppercase;position:absolute;top:0;width:100%;}
+  
+  .screen{display:none;flex-direction:column;align-items:center;justify-content:center;padding:80px 5vw;opacity:0;transition:opacity .6s ease;flex:1;}
+  .screen.active{display:flex;opacity:1;}
+
+  .title{font-size:clamp(60px,8vw,100px);font-weight:900;line-height:1.1;text-align:center;letter-spacing:-2px;}
+  #screenIntro .title{color:#000;} 
+
+  .btn{padding:16px 48px;border-radius:50px;border:1.5px solid var(--text);background:transparent;cursor:pointer;font-weight:500;font-size:16px;font-family:inherit;transition:all 0.2s;}
+  .btn-fill{background:var(--text);color:var(--bg);}
+  #screenIntro .btn-fill{border-color:#000;background:#000;color:#fff;margin-top:60px;}
+  .btn:disabled{opacity:0.3;cursor:not-allowed;}
+  
+  /* 스캔 영역 분할 */
+  .scan-layout{display:flex;flex-direction:row;width:100%;max-width:1200px;gap:80px;align-items:flex-start;}
+  .scan-left{flex:1;max-width:480px;display:flex;flex-direction:column;gap:16px;}
+  .scan-right{flex:1.5;display:flex;flex-direction:column;gap:16px;}
+
+  .status-row{display:flex;flex-direction:column;width:100%;gap:12px;align-items:flex-start;}
+  .cam-wrap{width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;position:relative;border:1.5px solid var(--border);background:#000;}
+  #video2{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);}
+  
+  /* 스캐닝 애니메이션 */
+  .scan-line-anim{
+    position:absolute;left:10%;right:10%;height:2px;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.8),transparent);
+    box-shadow:0 0 8px rgba(255,255,255,0.5);
+    animation:scanY 2.5s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes scanY{0%{top:10%;}50%{top:90%;}100%{top:10%;}}
+  .scan-corners{position:absolute;inset:0;pointer-events:none;}
+  .sc{position:absolute;width:30px;height:30px;border-color:rgba(255,255,255,0.6);border-style:solid;border-width:0;}
+  .sc-tl{top:16px;left:16px;border-top-width:3px;border-left-width:3px;border-radius:8px 0 0 0;}
+  .sc-tr{top:16px;right:16px;border-top-width:3px;border-right-width:3px;border-radius:0 8px 0 0;}
+  .sc-bl{bottom:16px;left:16px;border-bottom-width:3px;border-left-width:3px;border-radius:0 0 0 8px;}
+  .sc-br{bottom:16px;right:16px;border-bottom-width:3px;border-right-width:3px;border-radius:0 0 8px 0;}
+
+  .live-indicator{display:flex;align-items:center;width:100%;justify-content:space-between;padding:4px 8px 0;}
+  .live-left{display:flex;align-items:center;}
+  .dot{display:inline-block;width:8px;height:8px;background:#ff4d4d;border-radius:50%;margin-right:8px;animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%{opacity:1;}50%{opacity:0.3;}100%{opacity:1;}}
+
+  .typing-area{width:100%;}
+  .question-box{background:rgba(255,255,255,0.7);padding:24px;border-radius:12px;margin-bottom:20px;border-left:4px solid var(--text);}
+  .question-box p{font-size:18px;line-height:1.6;font-weight:500;word-break:keep-all;}
+  #stressInput{width:100%;height:320px;padding:24px;border:1.5px solid var(--border);border-radius:12px;background:#fff;font-family:inherit;font-size:16px;line-height:1.7;resize:none;outline:none;transition:all 0.3s;}
+  #stressInput:focus{border-color:var(--text);box-shadow:0 4px 12px rgba(0,0,0,0.05);}
+  .char-count{text-align:right;font-size:13px;color:var(--text3);margin-top:12px;}
+  
+  .btn-finish{width:100%;display:none;margin-top:12px;}
+
+  /* 4열 가로 배치 결과 패널 */
+  .result-data{display:grid;grid-template-columns:repeat(4, 1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:16px;overflow:hidden;width:100%;max-width:1000px;margin:60px 0;}
+  .rd{background:var(--bg);padding:32px 20px;text-align:center;}
+  .rd-label{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;}
+  .rd-val{font-size:36px;font-weight:900;}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="intro-bg" id="mainBg"></div>
+
+<div class="app">
+  <nav class="nav"><div>Hybrid Stress Analysis Lab</div></nav>
+
+  <div class="screen active" id="screenIntro">
+    <h1 class="title">Stress<br>Gardening.</h1>
+    <button class="btn btn-fill" id="btnBegin">측정 시작하기</button>
+  </div>
+
+  <div class="screen" id="screenScan">
+    <div class="scan-layout">
+      <div class="scan-left">
+        <div class="status-row">
+          <div class="cam-wrap">
+            <video id="video2" playsinline muted></video>
+            <div class="scan-line-anim"></div>
+            <div class="scan-corners">
+              <div class="sc sc-tl"></div><div class="sc sc-tr"></div>
+              <div class="sc sc-bl"></div><div class="sc sc-br"></div>
+            </div>
+          </div>
+          <div class="live-indicator">
+            <div class="live-left">
+              <span class="dot"></span>
+              <span style="font-size:14px;font-weight:700;letter-spacing:0.05em;">LIVE SCANNING...</span>
+            </div>
+            <div id="timeElapsed" style="font-size:13px;color:var(--text3);">경과 시간: 0s</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="scan-right">
+        <div class="typing-area">
+          <div class="question-box">
+            <p>오늘 하루는 어땠나요? 가장 스트레스를 받았던 일은 무엇이었나요?</p>
+          </div>
+          <textarea id="stressInput" placeholder="이곳에 자유롭게 마음을 기록해 주세요..."></textarea>
+          <div class="char-count"><span id="currentChar">0</span> / 300자 권장</div>
+        </div>
+        <button class="btn btn-fill btn-finish" id="btnFinish">이제 모든 스트레스를 정리하고 싶어</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="screenResult">
+    <h1 class="title" style="white-space:nowrap;">Analysis Result.</h1>
+    <p id="resDesc" style="text-align:center;margin-bottom:10px;font-size:18px;color:var(--text2);max-width:800px;word-break:keep-all;"></p>
+    <div class="result-data">
+      <div class="rd"><div class="rd-label">Analysis Time</div><div class="rd-val" id="resTime">--</div></div>
+      <div class="rd"><div class="rd-label">Typing Speed</div><div class="rd-val" id="resWPM">--</div></div>
+      <div class="rd"><div class="rd-label">Error Rate</div><div class="rd-val" id="resErr">--</div></div>
+      <div class="rd"><div class="rd-label">Stress Index</div><div class="rd-val" id="resTotal">--</div></div>
+    </div>
+    <button class="btn" id="btnRetry">새로 측정하기</button>
+  </div>
+</div>
+
+<script>
+let stream, animId, t0;
+const typingData = {dwell:[], flight:[], lastUp:0, backspace:0, total:0, starts:{}};
+
+const $ = id => document.getElementById(id);
+
+const goTo = id => {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+  
+  if(id === 'screenIntro') $('mainBg').classList.remove('hide');
+  else $('mainBg').classList.add('hide');
+};
+
+const initTyping = () => {
+  const input = $('stressInput');
+  const finishBtn = $('btnFinish');
+  input.focus();
+  
+  input.addEventListener('input', () => {
+    const len = input.value.length;
+    $('currentChar').textContent = len;
+    if(len >= 10) finishBtn.style.display = 'block'; 
+    if(len >= 300) $('currentChar').style.color = '#2ecc71';
+  });
+
+  input.addEventListener('keydown', e => {
+    const now = performance.now();
+    typingData.total++;
+    if(e.key === 'Backspace') typingData.backspace++;
+    if(!typingData.starts[e.code]) typingData.starts[e.code] = now;
+    if(typingData.lastUp > 0) {
+      const f = now - typingData.lastUp;
+      if(f < 2000) typingData.flight.push(f);
+    }
+  });
+
+  input.addEventListener('keyup', e => {
+    const now = performance.now();
+    if(typingData.starts[e.code]) {
+      typingData.dwell.push(now - typingData.starts[e.code]);
+      delete typingData.starts[e.code];
+    }
+    typingData.lastUp = now;
+  });
+};
+
+const scanLoop = () => {
+  const elapsed = Math.floor((performance.now() - t0) / 1000);
+  $('timeElapsed').textContent = "경과 시간: " + elapsed + "s";
+  animId = requestAnimationFrame(scanLoop);
+};
+
+$('btnBegin').onclick = () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert("현재 브라우저에서는 카메라 기능을 지원하지 않음.");
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({video:{width:640, height:480}}).then(s => {
+    stream = s;
+    $('video2').srcObject = s;
+    $('video2').play();
+    goTo('screenScan');
+    t0 = performance.now();
+    initTyping();
+    scanLoop();
+  }).catch(err => alert("카메라 권한을 허용해야 측정이 시작됨."));
+};
+
+$('btnFinish').onclick = async () => {
+  const totalElapsed = (performance.now() - t0) / 1000;
+  if(animId) cancelAnimationFrame(animId);
+  if(stream) stream.getTracks().forEach(t => t.stop());
+  
+  calculateAndShow(totalElapsed);
+  
+  const userText = $('stressInput').value;
+  if(userText.trim().length > 10) {
+    $('resDesc').innerHTML = "작성하신 텍스트의 감정을 분석하고 있음...<br><span style='font-size:13px;font-weight:400;'>(API 키 등록 전에는 기본 메시지가 노출됨)</span>";
+    $('resDesc').style.color = "var(--text3)";
+    
+    const comfortMessage = await fetchEmotionMessage(userText);
+    $('resDesc').textContent = comfortMessage;
+    $('resDesc').style.color = "var(--text)"; 
+  }
+};
+
+const calculateAndShow = (duration) => {
+  const avgDwell = typingData.dwell.length ? typingData.dwell.reduce((a,b)=>a+b,0)/typingData.dwell.length : 0;
+  const errRate = typingData.total ? (typingData.backspace / typingData.total) * 100 : 0;
+  const wpm = Math.round((typingData.total / 5) / (duration / 60));
+  
+  let stressScore = 75 + Math.floor(errRate * 1.5) + Math.floor(avgDwell / 15);
+  stressScore = Math.min(99, stressScore);
+  
+  goTo('screenResult');
+  $('resTime').textContent = Math.round(duration) + 's';
+  $('resWPM').textContent = wpm + ' WPM';
+  $('resErr').textContent = errRate.toFixed(1) + '%';
+  $('resTotal').textContent = stressScore + '%';
+  
+  let baseDescText = "";
+  if(stressScore >= 90) baseDescText = "스트레스 5단계: 매우 높은 긴장 상태. 즉각적인 환기가 필요함.";
+  else if(stressScore >= 82) baseDescText = "스트레스 4단계: 높은 긴장 상태. 휴식을 권장함.";
+  else baseDescText = "스트레스 3단계: 피로도가 누적된 상태임.";
+  
+  $('resDesc').textContent = baseDescText;
+  $('resDesc').style.color = "#ff4d4d"; 
+};
+
+// [새로고침 없는 초기화 로직 추가]
+$('btnRetry').onclick = () => {
+  // 입력 필드 및 버튼 초기화
+  $('stressInput').value = '';
+  $('currentChar').textContent = '0';
+  $('currentChar').style.color = 'var(--text3)';
+  $('btnFinish').style.display = 'none';
+  $('timeElapsed').textContent = "경과 시간: 0s";
+  
+  // 수집된 타이핑 데이터 초기화
+  typingData.dwell = [];
+  typingData.flight = [];
+  typingData.backspace = 0;
+  typingData.total = 0;
+  typingData.starts = {};
+  
+  // 첫 화면으로 매끄럽게 이동
+  goTo('screenIntro');
+};
+
+async function fetchEmotionMessage(text) {
+  const API_KEY = "여기에_발급받은_OPENAI_API_키를_입력하세요"; 
+  if(!API_KEY || API_KEY.includes("여기에")) {
+    return "스트레스가 누적된 하루였음. 지금은 모든 걸 내려놓고 온전히 당신만을 위한 휴식을 취하길 바람.";
+  }
+  
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "사용자의 텍스트를 읽고 감정을 분석하는 시스템임. 과장되지 않은 담백한 말투로 공감과 위로의 문장을 딱 1줄로만 작성함. 문장의 끝은 반드시 '~임', '~함', '~바람'과 같이 종결함."
+          },
+          {
+            role: "user",
+            content: text
+          }
+        ],
+        max_tokens: 60,
+        temperature: 0.7
+      })
+    });
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    return "네트워크 문제로 맞춤 메시지를 불러오지 못함. 휴식을 권장함.";
+  }
+}
+</script>
+</body>
+</html>
